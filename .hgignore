@@ -1,0 +1,14 @@
+# use glob syntax                                                             
+syntax: glob
+*.pyc
+*.pyo
+*.db
+.*.swp
+*.jpg
+tagging
+local_*.py
+*.json
+*.xml
+*.sql
+.*.swo
+
