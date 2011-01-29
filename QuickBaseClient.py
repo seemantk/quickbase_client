@@ -22,6 +22,7 @@
 ############################################################################
 
 
+
 import pycurl
 from lxml import etree as ET
 from lxml.builder import E
@@ -31,6 +32,18 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
+
+xtn_map = {
+    '>=': 'GTE',
+    '>': 'GT',
+    '<': 'LT',
+    '<=': 'LTE',
+    'contains': 'CT',
+    'ncontain': 'XCT',
+    'is': 'EX',
+    'nis': 'XEX',
+}
+
 
 
 class QuickBaseClient( object ):
@@ -184,7 +197,7 @@ class QuickBaseClient( object ):
 
         for node in schema.findall('table/fields/field'):
             if node.attrib['field_type'] == 'recordid':
-                field = node.attrib['id']
+                field = node.get('id')
                 break
 
         query = "{'%s'.EX.'%s'}" % (field, number)
@@ -198,6 +211,62 @@ class QuickBaseClient( object ):
         )
 
         return self.connect(db=db, xml=xml, api=api)
+
+    def get_records( self, db=None, conditions={} ):
+        if not conditions:
+            raise Exception, "No query parameters specified."
+
+        api = 'API_DoQuery'
+
+
+        if not db:
+            db = self.active_db
+
+        query = []
+        schema = self.get_schema(db=db)
+        
+        for field in conditions:
+            for f in schema.findall('table/fields/field'):
+                if f.findtext('label') == field:
+                    for bounds in conditions[field]:
+                        query.append(
+                            "{'%s'.%s.'%s'}" % (
+                                f.get('id'),
+                                xtn_map[bounds],
+                                conditions[field][bounds]
+                            )
+                        )
+
+        xml = (
+            E.qdbapi(
+                E.ticket(self.auth_ticket),
+                E.apptoken(self.token),
+                E.query('AND'.join(query)),
+                E.clist('a'),
+            )
+        )
+
+        return self.connect(db=db, xml=xml, api=api)
+
+
+    def get_all_records( self, db='' ):
+        api = 'API_DoQuery'
+        
+        if not db:
+            db = self.active_db
+            
+        xml = (
+            E.qdbapi(
+                E.ticket(self.auth_ticket),
+                E.apptoken(self.token),
+                E.query(),
+                E.clist('a'),
+            )   
+        )   
+        
+        return self.connect(db=db, xml=xml, api=api)
+
+
 
 
     def get_changed_records( self, db=None, clear=False ):
