@@ -1,5 +1,7 @@
 py-quickbaseclient
 
+Description
+
 A very *incomplete* python client for
 database applications on http://www.quickbase.com.
 
@@ -7,6 +9,12 @@ When I wrote this, the only thing I could find was the ruby quickbase client,
 released by Intuit.  So I wrote the functionality I needed in order to get my
 work done.  Please feel free to clone/fork this and add the functionality you
 need.
+
+
+Requirements
+
+You will need pycurl and lxml (python bindings for libxml2 and libxslt -- you'll obviously need those as well).
+
 
 License
 
