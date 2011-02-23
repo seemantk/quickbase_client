@@ -22,7 +22,6 @@
 ############################################################################
 
 
-
 import pycurl
 from lxml import etree as ET
 from lxml.builder import E
@@ -45,8 +44,11 @@ xtn_map = {
 }
 
 
+QB_TIMEOUT = 86400 # 24 * 60 * 60 seconds
+THRESHOLD = 400 # reset token within 400 seconds of timeout
 
-class QuickBaseClient( object ):
+
+class quickbase( object ):
     base_url = 'https://www.quickbase.com/db/'
     header = ['Content-Type: application/xml',]
     active_db = ''
@@ -57,8 +59,15 @@ class QuickBaseClient( object ):
     tables = {}
 
 
-    def __init__( self, username=None, password=None, token=None, app=None ):
-        if username is None or password is None:
+    def __init__(
+            self,
+            username=None,
+            password=None,
+            token=None,
+            app=None,
+            timeout=QB_TIMEOUT
+    ):
+        if not any([username, password]):
             raise Exception, "Username and password can not be blank."
 
         if token is None:
@@ -70,17 +79,22 @@ class QuickBaseClient( object ):
         self.username = username
         self.password = password
         self.token = token
+        self.timeout = timeout
 
         self.cxn = pycurl.Curl()
         self.cxn.setopt(pycurl.POST, 1)
 
-        self.authenticate()
+        self._authenticate()
         
-        self.set_application(app=app)
-        self.database()
+        self._set_application(app=app)
+        self._map_database()
 
 
-    def connect( self, db='', xml=None, api=None ):
+    def _connect( self, db='', xml=None, api=None ):
+        """
+        Internal function to be used only by _authenticate() and _perform()
+        methods. This function actually sends the request to Quickbase.com.
+        """
         header = list(self.header)
 
         if not db:
@@ -99,19 +113,26 @@ class QuickBaseClient( object ):
         self.cxn.perform()
         resp = ET.XML(s.getvalue())
 
-        # If the authentication period has timed out, then reauthenticate
-        # and rerun the original connection request
-        if resp.findtext('errcode') == '22':
-            self.authenticate()
-            resp = self.connect(db=db, xml=xml, api=api)
-        else:
-            if resp.findtext('errcode') != '0':
-                raise Exception, resp.findtext('errtext')
+        if resp.findtext('errcode') != '0':
+            raise Exception, resp.findtext('errtext')
 
         return resp
 
+    def _perform( self, db='', xml=None, api=None ):
+        """
+        First, check if we are within THRESHOLD seconds of the timeout.
+        If so, then reauthenticate().  Either way, pass the request on
+        to the _connect() function.
+        """
+        now = time.time()
 
-    def clear_flags( self, db='' ):
+        if (now - self.auth_time) > (self.timeout - THRESHOLD):
+            self._authenticate()
+
+        return self._connect(db=db, xml=xml, api=api)
+
+
+    def _clear_flags( self, db='' ):
         header = list(self.header)
         if not db:
             db = self.active_db
@@ -124,7 +145,7 @@ class QuickBaseClient( object ):
         return
 
 
-    def authenticate( self ):
+    def _authenticate( self ):
         api = 'API_Authenticate'
         db = 'main'
 
@@ -132,18 +153,31 @@ class QuickBaseClient( object ):
             E.qdbapi(
                 E.username(self.username),
                 E.password(self.password),
-                E.hours('24')
+                E.hours('%d' % self.timeout)
             )
         )
 
-        creds = self.connect(db=db, xml=xml, api=api)
+        creds = self._connect(db=db, xml=xml, api=api)
 
         self.userid = creds.findtext('userid')
         self.auth_ticket = creds.findtext('ticket')
 
         return
 
-    
+ 
+    def _set_application( self, app='' ):
+        response = self.get_dbid(app=app)
+        self.active_db = '%s' % response.findtext('dbid')
+        return
+
+
+    def _map_database( self, db='' ):
+        schema = self.get_schema(db=db)
+        for element in schema.findall('table/chdbids/chdbid'):
+            self.tables[element.values()[0][len('_dbid_'):]] = element.text
+
+        return
+
 
     def get_dbid( self, app='' ):
         api = 'API_FindDBByName'
@@ -156,21 +190,7 @@ class QuickBaseClient( object ):
             )
         )
 
-        return self.connect(db=db, xml=xml, api=api)
-
-
-    def set_application( self, app='' ):
-        response = self.get_dbid(app=app)
-        self.active_db = '%s' % response.findtext('dbid')
-        return
-
-
-    def database( self, db='' ):
-        schema = self.get_schema(db=db)
-        for element in schema.findall('table/chdbids/chdbid'):
-            self.tables[element.values()[0][len('_dbid_'):]] = element.text
-
-        return
+        return self._perform(db=db, xml=xml, api=api)
 
 
     def get_schema( self, db='' ):
@@ -182,7 +202,7 @@ class QuickBaseClient( object ):
             )
         )
 
-        schema = self.connect(db=db, xml=xml, api=api)
+        schema = self._perform(db=db, xml=xml, api=api)
 
         return schema
 
@@ -210,7 +230,7 @@ class QuickBaseClient( object ):
             )
         )
 
-        return self.connect(db=db, xml=xml, api=api)
+        return self._perform(db=db, xml=xml, api=api)
 
     def get_records( self, db=None, conditions={} ):
         if not conditions:
@@ -246,7 +266,7 @@ class QuickBaseClient( object ):
             )
         )
 
-        return self.connect(db=db, xml=xml, api=api)
+        return self._perform(db=db, xml=xml, api=api)
 
 
     def get_all_records( self, db='' ):
@@ -264,7 +284,7 @@ class QuickBaseClient( object ):
             )   
         )   
         
-        return self.connect(db=db, xml=xml, api=api)
+        return self._perform(db=db, xml=xml, api=api)
 
 
 
@@ -285,11 +305,11 @@ class QuickBaseClient( object ):
             )
         )
 
-        response = self.connect(db=db, xml=xml, api=api)
+        response = self._perform(db=db, xml=xml, api=api)
 
         # Now, clear the flags
         if clear:
-            self.clear_flags(db=db)
+            self._clear_flags(db=db)
 
 
         return response
