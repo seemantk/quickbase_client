@@ -10,14 +10,14 @@ def read(fname):
 
 setup(
     name = "quickbase_client",
-    version = "0.2",
+    version = "0.2.1",
     author = "Seemant Kulleen",
     author_email = "seemant@kulleen.org",
     description = ("A simple and incomplete Python interface to the"
                     "Quickbase HTTP API."),
     license = "MIT",
     keywords = "quickbase",
-    url = "https://github.com/seemant/py-quickbaseclient",
+    url = "https://github.com/seemant/quickbase_client",
     packages=['quickbase', ],
     long_description=read('README.rst'),
     classifiers=[
