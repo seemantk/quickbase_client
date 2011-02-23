@@ -120,6 +120,7 @@ class quickbase( object ):
 
     def _perform( self, db='', xml=None, api=None ):
         """
+        Internal function called by all functions which require a connection.
         First, check if we are within THRESHOLD seconds of the timeout.
         If so, then reauthenticate().  Either way, pass the request on
         to the _connect() function.
@@ -133,6 +134,9 @@ class quickbase( object ):
 
 
     def _clear_flags( self, db='' ):
+        """
+        Internal function to clear the new/changed flags on records.
+        """
         header = list(self.header)
         if not db:
             db = self.active_db
@@ -146,6 +150,9 @@ class quickbase( object ):
 
 
     def _authenticate( self ):
+        """
+        Internal function to login to quickbase and store the userid and ticket.
+        """
         api = 'API_Authenticate'
         db = 'main'
 
@@ -166,12 +173,19 @@ class quickbase( object ):
 
  
     def _set_application( self, app='' ):
+        """
+        Internal function to set the active database for the session.
+        """
         response = self.get_dbid(app=app)
         self.active_db = '%s' % response.findtext('dbid')
         return
 
 
     def _map_database( self, db='' ):
+        """
+        Map the database to a dictionary, so that they can be looked up
+        very quickly within this code.
+        """
         schema = self.get_schema(db=db)
         for element in schema.findall('table/chdbids/chdbid'):
             self.tables[element.values()[0][len('_dbid_'):]] = element.text
@@ -180,6 +194,12 @@ class quickbase( object ):
 
 
     def get_dbid( self, app='' ):
+        """
+        API function to find a database by name, and return its database id.
+        API_FindDBByName:
+            http://www.quickbase.com/api-guide/find_db_by_name.html
+
+        """
         api = 'API_FindDBByName'
         db = 'main'
 
@@ -194,6 +214,11 @@ class quickbase( object ):
 
 
     def get_schema( self, db='' ):
+        """
+        API function to get the schema for a particular database id."
+        API_GetSchema:
+            http://www.quickbase.com/api-guide/getschema.html
+        """
         api = 'API_GetSchema'
         xml = (
             E.qdbapi(
@@ -208,6 +233,13 @@ class quickbase( object ):
 
 
     def get_record( self, db=None, number='' ):
+        """
+        Get a single record by record id.  This is non-standard, but I needed
+        its functionality, and so here it is. Strictly speaking, this is just
+        a special case of the get_records() function, and should be deprecated
+        at some point.
+
+        """
         api = 'API_DoQuery'
         
         if not db:
@@ -232,7 +264,15 @@ class quickbase( object ):
 
         return self._perform(db=db, xml=xml, api=api)
 
+
+
     def get_records( self, db=None, conditions={} ):
+        """
+        API function to perform a query and return record(s) which satisfy
+        the query.
+        API_DoQuery:
+            http://www.quickbase.com/api-guide/do_query.html
+        """
         if not conditions:
             raise Exception, "No query parameters specified."
 
@@ -270,6 +310,11 @@ class quickbase( object ):
 
 
     def get_all_records( self, db='' ):
+        """
+        By default, the API_DoQuery function simply returns all records
+        if no conditions are satisfied.  So we do that here. This is, again,
+        a special case of get_records() and should probably be deprecated.
+        """
         api = 'API_DoQuery'
         
         if not db:
@@ -290,6 +335,10 @@ class quickbase( object ):
 
 
     def get_changed_records( self, db=None, clear=False ):
+        """
+        Another special case of get_records(), to only return changed records
+        (new or modified).  Optionally, this will clear the change flags.
+        """
         api = 'API_DoQuery'
 
         if not db:
