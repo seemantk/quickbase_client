@@ -169,6 +169,7 @@ class quickbase( object ):
 
         self.userid = creds.findtext('userid')
         self.auth_ticket = creds.findtext('ticket')
+        self.auth_time = time.time()
 
         return
 
