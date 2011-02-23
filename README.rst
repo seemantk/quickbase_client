@@ -1,6 +1,5 @@
-py-quickbaseclient
-
 Description
+===========
 
 A very *incomplete* python client for
 database applications on http://www.quickbase.com.
@@ -12,11 +11,13 @@ need.
 
 
 Requirements
+============
 
 You will need pycurl and lxml (python bindings for libxml2 and libxslt -- you'll obviously need those as well).
 
 
 License
+=======
 
 Copyright (c) 2009-2011 Seemant Kulleen
 Released under the MIT license.
