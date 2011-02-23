@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
     name = "quickbase_client",
-    version = "0.2.2",
+    version = "0.2.3",
     author = "Seemant Kulleen",
     author_email = "seemant@kulleen.org",
     description = ("A simple and incomplete Python interface to the"
